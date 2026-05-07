@@ -1,0 +1,151 @@
+// Schema para desenvolvimento local (sem pgvector)
+// Para produção na VPS, use schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client-local"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Plan {
+  id                   String   @id @default(uuid())
+  name                 String   @unique
+  displayName          String
+  priceMonthly         Float    @default(0)
+  stripePriceId        String?
+  messagesPerDay       Int      @default(50)
+  aiTokensPerDay       Int      @default(30000)
+  storageBytes         BigInt   @default(104857600)
+  maxActiveReminders   Int      @default(5)
+  memoryRetentionDays  Int      @default(30)
+  maxDocumentsPerMonth Int      @default(3)
+  trialDays            Int      @default(7)
+  createdAt            DateTime @default(now())
+
+  users User[]
+}
+
+model User {
+  id                   String    @id @default(uuid())
+  name                 String
+  email                String    @unique
+  passwordHash         String
+  whatsappNumber       String    @unique
+  whatsappVerified     Boolean   @default(false)
+  planId               String
+  plan                 Plan      @relation(fields: [planId], references: [id])
+  stripeCustomerId     String?
+  subscriptionId       String?
+  subscriptionStatus   String?
+  messagesUsedToday    Int       @default(0)
+  aiTokensUsedToday    Int       @default(0)
+  documentsThisMonth   Int       @default(0)
+  storageUsedBytes     BigInt    @default(0)
+  lastResetAt          DateTime  @default(now())
+  trialEndsAt          DateTime?
+  googleAccessToken    String?
+  googleRefreshToken   String?
+  googleTokenExpiry    DateTime?
+  googleDriveFolderId  String?
+  gmailConnected       Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  memories      Memory[]
+  appointments  Appointment[]
+  reminders     Reminder[]
+  files         UserFile[]
+  sessions      Session[]
+  conversations Conversation[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String
+  content   String
+  mediaType String?
+  mediaUrl  String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Memory {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String
+  title        String?
+  content      String
+  tags         String[] @default([])
+  sourceFileId String?
+  // embedding omitido para dev local (requer pgvector)
+  expiresAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Appointment {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  scheduledAt DateTime
+  notifiedAt  DateTime?
+  status      String    @default("pending")
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, scheduledAt])
+  @@index([status, scheduledAt])
+}
+
+model Reminder {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message     String
+  scheduledAt DateTime
+  repeat      String?
+  notifiedAt  DateTime?
+  status      String    @default("pending")
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([status, scheduledAt])
+}
+
+model UserFile {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalName     String
+  mimeType         String
+  sizeBytes        BigInt
+  storageBackend   String   @default("minio")
+  storagePath      String?
+  driveFileId      String?
+  driveWebViewLink String?
+  processed        Boolean  @default(false)
+  summary          String?
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+}
