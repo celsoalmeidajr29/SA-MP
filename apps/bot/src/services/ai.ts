@@ -83,7 +83,7 @@ export async function chat(
   conversationHistory: { role: "user" | "assistant"; content: string }[],
   mediaBase64?: string,
   mediaType?: "image" | "document"
-): Promise<string> {
+): Promise<{ response: string; tokensUsed: number }> {
   const memories = await searchMemories(userId, userMessage);
 
   const systemPrompt = `Você é o OSC, o segundo cérebro do usuário. Você tem acesso às memórias, anotações, compromissos e informações salvas pelo usuário.
@@ -137,7 +137,8 @@ INSTRUÇÕES:
     .map((b) => (b as { type: "text"; text: string }).text)
     .join("");
 
-  return text;
+  const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
+  return { response: text, tokensUsed };
 }
 
 export async function summarizeDocument(

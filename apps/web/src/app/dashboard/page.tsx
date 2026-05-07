@@ -12,6 +12,12 @@ export default async function DashboardPage() {
 
   if (!user) return null;
 
+  const now = new Date();
+  const trialActive = user.trialEndsAt && user.trialEndsAt > now && !user.subscriptionId;
+  const trialDaysLeft = trialActive
+    ? Math.ceil((user.trialEndsAt!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+
   const [memoryCount, reminderCount, appointmentCount, fileCount] =
     await Promise.all([
       prisma.memory.count({ where: { userId: user.id } }),
@@ -34,7 +40,24 @@ export default async function DashboardPage() {
       <h1 className="mb-1 text-2xl font-bold text-white">
         Olá, {user.name.split(" ")[0]}! 👋
       </h1>
-      <p className="mb-8 text-slate-400">Aqui está um resumo do seu segundo cérebro.</p>
+      <p className="mb-4 text-slate-400">Aqui está um resumo do seu segundo cérebro.</p>
+
+      {/* Banner de trial */}
+      {trialActive && (
+        <div className="mb-6 rounded-xl border border-brand-500/40 bg-brand-500/10 px-4 py-3 flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-white">
+              🎉 Você está no período de teste gratuito — {trialDaysLeft} dia{trialDaysLeft !== 1 ? "s" : ""} restante{trialDaysLeft !== 1 ? "s" : ""}
+            </p>
+            <p className="text-sm text-slate-400">
+              Aproveite todos os recursos Pro gratuitamente. Assine antes de expirar para não perder acesso.
+            </p>
+          </div>
+          <Link href="/dashboard/plano" className="btn-primary shrink-0 py-2 text-sm">
+            Assinar Pro
+          </Link>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -49,29 +72,51 @@ export default async function DashboardPage() {
 
       {/* Uso diário */}
       <div className="card mb-8">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="font-semibold text-white">Uso hoje</h2>
-          <span className="text-sm text-slate-400">
-            Plano {user.plan.displayName}
-          </span>
+          <span className="text-sm text-slate-400">Plano {user.plan.displayName}</span>
         </div>
+
+        {/* Mensagens */}
         <div className="mb-2 flex justify-between text-sm">
           <span className="text-slate-400">Mensagens</span>
           <span className="text-white">
-            {user.messagesUsedToday} / {user.plan.messagesPerDay}
+            {user.messagesUsedToday} / {user.plan.messagesPerDay === 99999 ? "∞" : user.plan.messagesPerDay}
           </span>
         </div>
-        <div className="h-2 rounded-full bg-slate-800">
+        <div className="mb-4 h-2 rounded-full bg-slate-800">
           <div
-            className={`h-2 rounded-full transition-all ${
-              usagePct >= 90 ? "bg-red-500" : usagePct >= 70 ? "bg-yellow-500" : "bg-brand-500"
-            }`}
+            className={`h-2 rounded-full transition-all ${usagePct >= 90 ? "bg-red-500" : usagePct >= 70 ? "bg-yellow-500" : "bg-brand-500"}`}
             style={{ width: `${Math.min(usagePct, 100)}%` }}
           />
         </div>
-        {user.plan.name === "free" && (
-          <p className="mt-3 text-sm text-slate-500">
-            Quer mensagens ilimitadas?{" "}
+
+        {/* Tokens de IA */}
+        {user.plan.aiTokensPerDay > 0 && (
+          <>
+            <div className="mb-2 flex justify-between text-sm">
+              <span className="text-slate-400">Tokens de IA</span>
+              <span className="text-white">
+                {user.aiTokensUsedToday.toLocaleString()} / {(user.plan.aiTokensPerDay / 1000).toFixed(0)}k
+              </span>
+            </div>
+            <div className="mb-4 h-2 rounded-full bg-slate-800">
+              {(() => {
+                const tokenPct = Math.round((user.aiTokensUsedToday / user.plan.aiTokensPerDay) * 100);
+                return (
+                  <div
+                    className={`h-2 rounded-full transition-all ${tokenPct >= 90 ? "bg-red-500" : tokenPct >= 70 ? "bg-yellow-500" : "bg-purple-500"}`}
+                    style={{ width: `${Math.min(tokenPct, 100)}%` }}
+                  />
+                );
+              })()}
+            </div>
+          </>
+        )}
+
+        {!user.subscriptionId && !trialActive && user.plan.name !== "pro" && (
+          <p className="text-sm text-slate-500">
+            Quer limites maiores?{" "}
             <Link href="/dashboard/plano" className="text-brand-400 hover:underline">
               Faça upgrade para o Pro
             </Link>

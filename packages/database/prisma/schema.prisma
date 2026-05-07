@@ -17,10 +17,13 @@ model Plan {
   priceMonthly          Float    @default(0)
   stripePriceId         String?
   messagesPerDay        Int      @default(50)
+  // 0 = ilimitado; free = ~30k tokens/dia (~60 msgs curtas)
+  aiTokensPerDay        Int      @default(30000)
   storageBytes          BigInt   @default(104857600) // 100 MB
   maxActiveReminders    Int      @default(5)
   memoryRetentionDays   Int      @default(30)
   maxDocumentsPerMonth  Int      @default(3)
+  trialDays             Int      @default(7)
   createdAt             DateTime @default(now())
 
   users User[]
@@ -39,12 +42,22 @@ model User {
   stripeCustomerId String?
   subscriptionId  String?
   subscriptionStatus String? // "active" | "canceled" | "past_due"
-  messagesUsedToday Int     @default(0)
-  documentsThisMonth Int    @default(0)
-  storageUsedBytes  BigInt  @default(0)
-  lastResetAt     DateTime  @default(now())
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  messagesUsedToday  Int      @default(0)
+  aiTokensUsedToday  Int      @default(0)
+  documentsThisMonth Int      @default(0)
+  storageUsedBytes   BigInt   @default(0)
+  lastResetAt        DateTime @default(now())
+  // Trial: todos os usuários novos têm 7 dias grátis do plano Pro
+  trialEndsAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Google integrations
+  googleAccessToken  String?
+  googleRefreshToken String?
+  googleTokenExpiry  DateTime?
+  googleDriveFolderId String?  // ID da pasta "OSC" no Drive do usuário
+  gmailConnected     Boolean  @default(false)
 
   memories        Memory[]
   appointments    Appointment[]
@@ -130,16 +143,20 @@ model Reminder {
 
 // ─── Arquivos ──────────────────────────────────────────────────────────────
 model UserFile {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  originalName String
-  mimeType     String
-  sizeBytes    BigInt
-  storagePath  String
-  processed    Boolean  @default(false)
-  summary      String?
-  createdAt    DateTime @default(now())
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalName    String
+  mimeType        String
+  sizeBytes       BigInt
+  // Armazenamento: "drive" (Google Drive do usuário) | "minio" (fallback)
+  storageBackend  String   @default("minio")
+  storagePath     String?  // caminho no MinIO (quando backend=minio)
+  driveFileId     String?  // ID do arquivo no Google Drive (quando backend=drive)
+  driveWebViewLink String? // link de visualização no Drive
+  processed       Boolean  @default(false)
+  summary         String?
+  createdAt       DateTime @default(now())
 
   @@index([userId])
 }
