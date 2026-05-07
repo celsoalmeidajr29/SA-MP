@@ -1,0 +1,145 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector, uuidOssp(map: "uuid-ossp")]
+}
+
+// ─── Planos ────────────────────────────────────────────────────────────────
+model Plan {
+  id                    String   @id @default(uuid())
+  name                  String   @unique // "free" | "pro"
+  displayName           String
+  priceMonthly          Float    @default(0)
+  stripePriceId         String?
+  messagesPerDay        Int      @default(50)
+  storageBytes          BigInt   @default(104857600) // 100 MB
+  maxActiveReminders    Int      @default(5)
+  memoryRetentionDays   Int      @default(30)
+  maxDocumentsPerMonth  Int      @default(3)
+  createdAt             DateTime @default(now())
+
+  users User[]
+}
+
+// ─── Usuários ──────────────────────────────────────────────────────────────
+model User {
+  id              String    @id @default(uuid())
+  name            String
+  email           String    @unique
+  passwordHash    String
+  whatsappNumber  String    @unique
+  whatsappVerified Boolean  @default(false)
+  planId          String
+  plan            Plan      @relation(fields: [planId], references: [id])
+  stripeCustomerId String?
+  subscriptionId  String?
+  subscriptionStatus String? // "active" | "canceled" | "past_due"
+  messagesUsedToday Int     @default(0)
+  documentsThisMonth Int    @default(0)
+  storageUsedBytes  BigInt  @default(0)
+  lastResetAt     DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  memories        Memory[]
+  appointments    Appointment[]
+  reminders       Reminder[]
+  files           UserFile[]
+  sessions        Session[]
+  conversations   Conversation[]
+}
+
+// ─── Sessões (auth web) ────────────────────────────────────────────────────
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// ─── Conversas WhatsApp ────────────────────────────────────────────────────
+model Conversation {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String    // "user" | "assistant"
+  content   String
+  mediaType String?   // "text" | "image" | "audio" | "document"
+  mediaUrl  String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ─── Memórias (base do segundo cérebro) ───────────────────────────────────
+model Memory {
+  id          String                      @id @default(uuid())
+  userId      String
+  user        User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String                      // "note" | "health" | "contact" | "task" | "info" | "document"
+  title       String?
+  content     String
+  tags        String[]                    @default([])
+  sourceFileId String?
+  embedding   Unsupported("vector(1536)")?
+  expiresAt   DateTime?
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+
+  @@index([userId])
+}
+
+// ─── Compromissos ──────────────────────────────────────────────────────────
+model Appointment {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  scheduledAt DateTime
+  notifiedAt  DateTime?
+  status      String    @default("pending") // "pending" | "notified" | "canceled"
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, scheduledAt])
+  @@index([status, scheduledAt])
+}
+
+// ─── Lembretes ─────────────────────────────────────────────────────────────
+model Reminder {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message     String
+  scheduledAt DateTime
+  repeat      String?   // "daily" | "weekly" | "monthly" | null
+  notifiedAt  DateTime?
+  status      String    @default("pending") // "pending" | "notified" | "canceled"
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([status, scheduledAt])
+}
+
+// ─── Arquivos ──────────────────────────────────────────────────────────────
+model UserFile {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalName String
+  mimeType     String
+  sizeBytes    BigInt
+  storagePath  String
+  processed    Boolean  @default(false)
+  summary      String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}

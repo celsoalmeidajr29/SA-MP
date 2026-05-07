@@ -1,0 +1,21 @@
+{
+  "name": "osc-second-brain",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=apps/bot\" \"npm run dev --workspace=apps/web\"",
+    "build": "npm run build --workspaces",
+    "db:migrate": "npm run migrate --workspace=packages/database",
+    "db:generate": "npm run generate --workspace=packages/database",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  }
+}
