@@ -2,7 +2,7 @@
 > Chatbot WhatsApp com memória inteligente, agendamentos e integrações
 
 **Status atual:** `🟡 Em desenvolvimento — Código pronto, aguardando VPS`
-**Última atualização:** 2026-05-07
+**Última atualização:** 2026-05-10
 **Repositório:** `celsoalmeidajr29/SA-MP` → branch `claude/clean-up-repository-RfVTr`
 
 ---
@@ -30,6 +30,9 @@
 
 ### Custos
 - [[05-Custos/Análise de Custos]] — Por escala (1, 100, 1000, 10000 usuários)
+
+### Sessões de desenvolvimento
+- [[06-Sessoes/Sessão 2026-05-10]] — Scaffold completo, memória exportada, pronto para VPS
 
 ---
 
